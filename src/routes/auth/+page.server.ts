@@ -1,9 +1,10 @@
 import { db } from '$lib/db/db.js';
 import { schemaUser } from '$lib/db/schema.js';
-import { error, fail, redirect } from '@sveltejs/kit';
-import { sql } from 'drizzle-orm';
-import { hash } from 'bcrypt';
+import { fail, redirect } from '@sveltejs/kit';
+import { eq, sql } from 'drizzle-orm';
+import { compare, hash } from 'bcrypt';
 import { z } from 'zod';
+import validateFormData from '$lib/utils/validateFormData.js';
 
 // Validation schemas
 const userRegisterSchema = z
@@ -25,11 +26,39 @@ const userRegisterSchema = z
 		path: ['password']
 	});
 
-export const actions = {
-	login: async function (event) {
-		// todo: implement login
-	},
+const userLoginSchema = z.object({
+	email: z.string().email('Please enter a valid email').trim(),
+	password: z.string().min(6, 'Please enter your password')
+});
 
+export const actions = {
+	login: async function ({ request, cookies }) {
+		const userData = await request.formData();
+		const email = userData.get('email') as string;
+		const password = userData.get('password') as string;
+
+		// Validate the provided form data
+		const errors = await validateFormData(userLoginSchema, userData);
+		if (errors) {
+			return fail(422, { errors });
+		}
+
+		// Check if user exists and passwords match
+		const users = await db.select().from(schemaUser).where(eq(schemaUser.email, email));
+		if (!users.length) {
+			return fail(400, { errors: 'Invalid username or password' });
+		}
+
+		// Compare the passwords
+		const isPasswordMatching = await compare(password, users[0].password);
+		if (!isPasswordMatching) {
+			return fail(400, { errors: 'Invalid username or password' });
+		}
+
+		// If everything is fine, issue a cookie and redirect the user
+		cookies.set('authenticated', 'true', { path: '/' });
+		redirect(303, '/');
+	},
 	register: async function ({ request, cookies }) {
 		const userData = await request.formData();
 
@@ -38,14 +67,9 @@ export const actions = {
 		const email = userData.get('email') as string;
 		const password = userData.get('password') as string;
 
-		const validationCheck = userRegisterSchema.safeParse(Object.fromEntries(userData));
-		if (!validationCheck.success) {
-			const errors: Record<string, string> = {};
-			Object.values(validationCheck.error.errors).forEach((error) => {
-				errors[error.path[0]] = error.message;
-			});
-
-			console.log('wat?');
+		// Validate the provided form data
+		const errors = await validateFormData(userRegisterSchema, userData);
+		if (errors) {
 			return fail(422, { errors });
 		}
 
@@ -63,12 +87,9 @@ export const actions = {
 		const hashedPassword: string = await hash(password, 10);
 		await db.insert(schemaUser).values({ first_name, last_name, email, password: hashedPassword });
 
-		// todo: set cookie
+		// todo: clean this up
 		cookies.set('authenticated', 'true', { path: '/' });
-
 		redirect(303, '/');
-
-		// todo: redirect to some page
 	},
 
 	logout: async function ({ cookies }) {
