@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
+	import FormInput from '$lib/components/Forms/FormInput.svelte';
 
 	let submitting = false;
 	export let form;
-
-	$: {
-		console.log('form', form);
-	}
 </script>
 
 <div class="p-6 mx-auto my-10 border border-slate-200 rounded bg-white max-w-[500px] w-full">
@@ -20,62 +17,43 @@
 		use:enhance={() => {
 			submitting = true;
 
-			return async ({ update }) => {
+			return async ({ update, result }) => {
 				await update();
 				submitting = false;
+
+				// Updates the form properties for this page
+				// with the results from the form submission in the
+				// defined named form action
+				await applyAction(result);
 			};
 		}}
 	>
-		<label class="text-xs text-slate-700 mb-1" for="first_name">First Name</label>
-		<input
-			id="first_name"
+		<FormInput
 			name="first_name"
-			type="text"
 			placeholder="John"
-			required
-			class="p-2 border border-slate-200 rounded focus:outline-none mb-6"
+			label="First Name"
+			error={form?.errors?.first_name}
 		/>
-
-		<label class="text-xs text-slate-700 mb-1" for="last_name">Last Name</label>
-		<input
-			id="last_name"
+		<FormInput
 			name="last_name"
-			type="text"
-			placeholder="john@doe.com"
-			required
-			class="p-2 border border-slate-200 rounded focus:outline-none mb-6"
+			placeholder="Doe"
+			label="Last Name"
+			error={form?.errors?.last_name}
 		/>
-
-		<label class="text-xs text-slate-700 mb-1" for="email">Email</label>
-		<input
-			id="email"
+		<FormInput
 			name="email"
-			type="text"
-			placeholder="john@doe.com"
-			required
-			class="p-2 border border-slate-200 rounded focus:outline-none mb-6"
+			placeholder="johndoe@example.com"
+			label="Email"
+			type="email"
+			error={form?.errors?.email}
 		/>
-
-		<label class="text-xs text-slate-700 mb-1" for="password">Password</label>
-		<input
-			id="password"
-			name="password"
-			type="password"
-			required
-			class="p-2 border border-slate-200 rounded focus:outline-none mb-6"
-		/>
-
-		<label class="text-xs text-slate-700 mb-1" for="confirm_password">Confirm Password</label>
-		<input
-			id="confirm_password"
+		<FormInput name="password" label="Password" error={form?.errors?.password} />
+		<FormInput
 			name="confirm_password"
+			label="Confirm Password"
 			type="password"
-			required
-			class="p-2 border border-slate-200 rounded focus:outline-none mb-8"
+			error={form?.errors?.confirm_password}
 		/>
-		{#if form?.errors?.password}
-			<span class="text-sm text-red-600">abc</span>
-		{/if}
 
 		<div class="flex items-center justify-between">
 			<span class="inline-block mb-10 text-xs text-slate-400">
